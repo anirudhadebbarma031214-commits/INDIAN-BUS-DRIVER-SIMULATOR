@@ -1,0 +1,43 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "android-godot/**"
+      - ".github/workflows/android-apk.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-android:
+    name: Export Android APK
+    runs-on: ubuntu-latest
+    container:
+      image: barichello/godot-ci:4.3.0
+    defaults:
+      run:
+        working-directory: android-godot
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Show Godot version
+        run: godot --headless --version
+
+      - name: Import project resources
+        run: godot --headless --editor --path . --quit
+
+      - name: Export Android debug APK
+        run: |
+          mkdir -p build
+          godot --headless --path . --export-debug "Android" build/IndianBusDriverSimulator.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: IndianBusDriverSimulator-Android-APK
+          path: android-godot/build/IndianBusDriverSimulator.apk
+          if-no-files-found: error
+          retention-days: 14
