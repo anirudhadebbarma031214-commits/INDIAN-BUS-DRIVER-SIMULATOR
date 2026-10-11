@@ -20,9 +20,9 @@ controlGui.Parent = player:WaitForChild("PlayerGui")
 
 local panel = Instance.new("Frame")
 panel.Name = "TouchControls"
-panel.AnchorPoint = Vector2.new(0, 1)
-panel.Position = UDim2.new(0.025, 0, 0.97, 0)
-panel.Size = UDim2.fromOffset(228, 142)
+panel.AnchorPoint = Vector2.new(0.5, 1)
+panel.Position = UDim2.new(0.5, 0, 0.97, 0)
+panel.Size = UDim2.fromOffset(244, 142)
 panel.BackgroundTransparency = 1
 panel.Visible = false
 panel.Parent = controlGui
@@ -100,6 +100,9 @@ end)
 RunService.RenderStepped:Connect(function()
     local driving = seatedInBus()
     panel.Visible = driving and UserInputService.TouchEnabled
+    if UserInputService.TouchEnabled then
+        panel.Size = UDim2.fromOffset(244, 142)
+    end
     if not driving then
         controls.forward, controls.reverse, controls.left, controls.right = false, false, false, false
         return
