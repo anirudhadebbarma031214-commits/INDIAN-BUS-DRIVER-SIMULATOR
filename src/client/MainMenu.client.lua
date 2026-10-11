@@ -5,6 +5,7 @@
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -231,6 +232,150 @@ local exitDialog = makeDialog(
     "Roblox experiences cannot close the Roblox app with a script. Use the Roblox menu to leave this experience.",
     "GOT IT"
 )
+
+
+-- CORNER MINIMAP: player marker plus a live pointer toward the Agartala bus stop.
+local miniMap = Instance.new("Frame")
+miniMap.Name = "CornerDirectionMap"
+miniMap.AnchorPoint = Vector2.new(1, 0)
+miniMap.Position = UDim2.new(0.98, 0, 0.03, 0)
+miniMap.Size = UDim2.fromOffset(220, 190)
+miniMap.BackgroundColor3 = Color3.fromRGB(8, 20, 28)
+miniMap.BorderSizePixel = 0
+miniMap.Visible = false
+miniMap.ZIndex = 30
+miniMap.Parent = gui
+local miniCorner = Instance.new("UICorner")
+miniCorner.CornerRadius = UDim.new(0, 12)
+miniCorner.Parent = miniMap
+local miniStroke = Instance.new("UIStroke")
+miniStroke.Color = Color3.fromRGB(255, 166, 64)
+miniStroke.Thickness = 2
+miniStroke.Parent = miniMap
+
+local miniTitle = Instance.new("TextLabel")
+miniTitle.BackgroundTransparency = 1
+miniTitle.Position = UDim2.new(0.05, 0, 0.03, 0)
+miniTitle.Size = UDim2.new(0.9, 0, 0.16, 0)
+miniTitle.Font = Enum.Font.GothamBlack
+miniTitle.Text = "MINI MAP  /  AGARTALA"
+miniTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+miniTitle.TextScaled = true
+miniTitle.ZIndex = 31
+miniTitle.Parent = miniMap
+
+local miniRoad = Instance.new("Frame")
+miniRoad.AnchorPoint = Vector2.new(0.5, 0.5)
+miniRoad.Position = UDim2.new(0.5, 0, 0.58, 0)
+miniRoad.Size = UDim2.new(0.88, 0, 0, 5)
+miniRoad.Rotation = -24
+miniRoad.BackgroundColor3 = Color3.fromRGB(110, 132, 126)
+miniRoad.BorderSizePixel = 0
+miniRoad.ZIndex = 31
+miniRoad.Parent = miniMap
+
+local miniRoad2 = Instance.new("Frame")
+miniRoad2.AnchorPoint = Vector2.new(0.5, 0.5)
+miniRoad2.Position = UDim2.new(0.55, 0, 0.56, 0)
+miniRoad2.Size = UDim2.new(0.78, 0, 0, 4)
+miniRoad2.Rotation = 60
+miniRoad2.BackgroundColor3 = Color3.fromRGB(85, 108, 105)
+miniRoad2.BorderSizePixel = 0
+miniRoad2.ZIndex = 31
+miniRoad2.Parent = miniMap
+
+local stopDot = Instance.new("Frame")
+stopDot.Name = "BusStopMarker"
+stopDot.AnchorPoint = Vector2.new(0.5, 0.5)
+stopDot.Position = UDim2.new(0.78, 0, 0.39, 0)
+stopDot.Size = UDim2.fromOffset(12, 12)
+stopDot.BackgroundColor3 = Color3.fromRGB(255, 166, 64)
+stopDot.BorderSizePixel = 0
+stopDot.ZIndex = 34
+stopDot.Parent = miniMap
+local stopDotCorner = Instance.new("UICorner")
+stopDotCorner.CornerRadius = UDim.new(1, 0)
+stopDotCorner.Parent = stopDot
+
+local stopText = Instance.new("TextLabel")
+stopText.BackgroundTransparency = 1
+stopText.Position = UDim2.new(0.48, 0, 0.29, 0)
+stopText.Size = UDim2.new(0.48, 0, 0.09, 0)
+stopText.Font = Enum.Font.GothamBold
+stopText.Text = "BUS STOP"
+stopText.TextColor3 = Color3.fromRGB(255, 190, 95)
+stopText.TextScaled = true
+stopText.ZIndex = 34
+stopText.Parent = miniMap
+
+local playerDot = Instance.new("Frame")
+playerDot.Name = "PlayerPosition"
+playerDot.AnchorPoint = Vector2.new(0.5, 0.5)
+playerDot.Position = UDim2.new(0.2, 0, 0.72, 0)
+playerDot.Size = UDim2.fromOffset(12, 12)
+playerDot.BackgroundColor3 = Color3.fromRGB(80, 210, 255)
+playerDot.BorderSizePixel = 0
+playerDot.ZIndex = 35
+playerDot.Parent = miniMap
+local playerDotCorner = Instance.new("UICorner")
+playerDotCorner.CornerRadius = UDim.new(1, 0)
+playerDotCorner.Parent = playerDot
+
+local directionArrow = Instance.new("TextLabel")
+directionArrow.Name = "DirectionPointer"
+directionArrow.AnchorPoint = Vector2.new(0.5, 0.5)
+directionArrow.Position = playerDot.Position
+directionArrow.Size = UDim2.fromOffset(34, 28)
+directionArrow.BackgroundTransparency = 1
+directionArrow.Font = Enum.Font.GothamBlack
+directionArrow.Text = ">"
+directionArrow.TextColor3 = Color3.fromRGB(80, 210, 255)
+directionArrow.TextSize = 28
+directionArrow.ZIndex = 36
+directionArrow.Parent = miniMap
+
+local directionText = Instance.new("TextLabel")
+directionText.Name = "DirectionHint"
+directionText.AnchorPoint = Vector2.new(0.5, 1)
+directionText.Position = UDim2.new(0.5, 0, 0.98, 0)
+directionText.Size = UDim2.new(0.92, 0, 0.16, 0)
+directionText.BackgroundTransparency = 1
+directionText.Font = Enum.Font.GothamBold
+directionText.Text = "ARROW POINTS TO BUS STOP"
+directionText.TextColor3 = Color3.fromRGB(220, 235, 240)
+directionText.TextScaled = true
+directionText.ZIndex = 35
+directionText.Parent = miniMap
+
+local busStopWorldPosition = Vector3.new(73, 0, 43)
+local function compassDirection(deltaX, deltaZ)
+    if math.abs(deltaX) > math.abs(deltaZ) then
+        return deltaX > 0 and "EAST" or "WEST"
+    elseif math.abs(deltaZ) > 0.5 then
+        return deltaZ > 0 and "SOUTH" or "NORTH"
+    end
+    return "HERE"
+end
+
+RunService.RenderStepped:Connect(function()
+    if not miniMap.Visible then return end
+    local character = player.Character
+    local root = character and character:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+
+    -- The map covers the depot area; player dot follows their world position.
+    local px = math.clamp((root.Position.X + 90) / 180, 0.08, 0.92)
+    local py = math.clamp((root.Position.Z + 65) / 130, 0.22, 0.82)
+    playerDot.Position = UDim2.new(px, 0, py, 0)
+
+    local dx = busStopWorldPosition.X - root.Position.X
+    local dz = busStopWorldPosition.Z - root.Position.Z
+    local mapDx = dx / 180 * 150
+    local mapDy = dz / 130 * 105
+    directionArrow.Position = UDim2.new(px, mapDx, py, mapDy)
+    directionArrow.Rotation = math.deg(math.atan2(mapDy, mapDx))
+    directionText.Text = "BUS STOP: " .. compassDirection(dx, dz)
+end)
 
 -- ROUTE SELECTOR: a clickable schematic map, built directly in Roblox UI.
 -- This is a stylized route diagram, not a live GPS map. Driving/spawning will be wired in later.
@@ -481,7 +626,10 @@ confirmCorner.CornerRadius = UDim.new(0, 8)
 confirmCorner.Parent = confirmRoute
 confirmRoute.Activated:Connect(function()
     selectedLabel.Text = "ROUTE SAVED: " .. selectedRoute
-    mapNote.Text = "SELECTED: " .. selectedRoute .. " • BUS SPAWN / DRIVING WILL BE CONNECTED NEXT"
+    mapNote.Text = "SELECTED: " .. selectedRoute .. " • BUS STOP DIRECTION MAP ENABLED"
+    routePanel.Visible = false
+    background.Visible = false
+    miniMap.Visible = true
 end)
 
 playButton.Activated:Connect(function()
