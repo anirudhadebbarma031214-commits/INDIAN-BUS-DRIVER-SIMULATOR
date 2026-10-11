@@ -139,7 +139,7 @@ func _build_bus() -> void:
 		for i in range(4):
 			_box(bus, "Passenger Window", Vector3(0.12, 0.85, 1.0), Vector3(side * 2.04, 3.05, -2.1 + float(i) * 1.4), Color(0.14, 0.28, 0.34))
 		for z in [-3.2, 3.2]:
-			var wheel := _box(bus, "Wheel", Vector3(0.45, 0.95, 1.0), Vector3(side * 2.15, 0.65, z), Color(0.06, 0.06, 0.06))
+			_box(bus, "Wheel", Vector3(0.45, 0.95, 1.0), Vector3(side * 2.15, 0.65, z), Color(0.06, 0.06, 0.06))
 	_box(bus, "Front Bumper", Vector3(3.8, 0.35, 0.3), Vector3(0, 0.8, -5.0), Color(0.78, 0.78, 0.75))
 	_box(bus, "Bus Destination Board", Vector3(2.5, 0.45, 0.12), Vector3(0, 3.9, -3.68), Color(0.98, 0.77, 0.12))
 
@@ -182,11 +182,11 @@ func _build_ui() -> void:
 	speed_label.text = "SPEED  000 km/h     FUEL  100%"
 	root.add_child(speed_label)
 
-	var map_tag := Label.new()
-	map_tag.text = "AGARTALA • TRIPURA"
-	map_tag.position = Vector2(20, 112)
-	map_tag.add_theme_font_size_override("font_size", 16)
-	root.add_child(map_tag)
+	route_label = Label.new()
+	route_label.text = "AGARTALA • TRIPURA"
+	route_label.position = Vector2(20, 112)
+	route_label.add_theme_font_size_override("font_size", 16)
+	root.add_child(route_label)
 
 	drive_ui = Control.new()
 	drive_ui.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -254,10 +254,27 @@ func _add_drive_button(parent: Control, text_value: String, pos: Vector2, size_v
 	b.text = text_value
 	b.custom_minimum_size = size_value
 	b.add_theme_font_size_override("font_size", 28)
-	b.add_theme_stylebox_override("normal", _panel_style(Color(0.04, 0.10, 0.15, 0.82)))
-	b.add_theme_stylebox_override("pressed", _panel_style(Color(0.10, 0.40, 0.65, 0.95)))
-	b.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT if bottom_right else Control.PRESET_BOTTOM_LEFT)
-	b.position = pos
+	var normal_style := _panel_style(Color(0.04, 0.10, 0.15, 0.82))
+	var pressed_style := _panel_style(Color(0.10, 0.40, 0.65, 0.95))
+	for s in [normal_style, pressed_style]:
+		s.content_margin_top = 2
+		s.content_margin_bottom = 2
+		s.content_margin_left = 2
+		s.content_margin_right = 2
+	b.add_theme_stylebox_override("normal", normal_style)
+	b.add_theme_stylebox_override("pressed", pressed_style)
+	b.add_theme_stylebox_override("hover", normal_style)
+	b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	# Anchor to the bottom-left or bottom-right corner and size explicitly via offsets.
+	var anchor_x := 1.0 if bottom_right else 0.0
+	b.anchor_left = anchor_x
+	b.anchor_right = anchor_x
+	b.anchor_top = 1.0
+	b.anchor_bottom = 1.0
+	b.offset_left = pos.x
+	b.offset_top = pos.y
+	b.offset_right = pos.x + size_value.x
+	b.offset_bottom = pos.y + size_value.y
 	b.button_down.connect(_set_control.bind(action, true))
 	b.button_up.connect(_set_control.bind(action, false))
 	parent.add_child(b)
@@ -276,6 +293,7 @@ func _choose_route(index: int) -> void:
 func _start_driving() -> void:
 	driving = true
 	menu.visible = false
+	route_label.text = "AGARTALA • TRIPURA  |  ROUTE: " + current_route.to_upper()
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not driving:
