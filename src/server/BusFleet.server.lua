@@ -156,4 +156,65 @@ for i, def in ipairs(buses) do
     makeBus(def, i)
 end
 
-print("Indian Bus Driver Simulator: generated " .. #buses .. " 3D bus models in Workspace.BusFleet")
+
+-- Small roadside bus stop at the depot corner.
+local stopFolder = Workspace:FindFirstChild("BusStopCorner") or Instance.new("Folder")
+stopFolder.Name = "BusStopCorner"
+stopFolder.Parent = Workspace
+stopFolder:ClearAllChildren()
+
+local stopBase = Vector3.new(73, 0, 43)
+local function stopPart(name, size, offset, color, material)
+    local p = Instance.new("Part")
+    p.Name = name
+    p.Size = size
+    p.Position = stopBase + offset
+    p.Anchored = true
+    p.CanCollide = true
+    p.Color = color
+    p.Material = material or Enum.Material.SmoothPlastic
+    p.TopSurface = Enum.SurfaceType.Smooth
+    p.BottomSurface = Enum.SurfaceType.Smooth
+    p.Parent = stopFolder
+    return p
+end
+
+stopPart("Platform", Vector3.new(18, 0.35, 10), Vector3.new(0, 0.2, 0), Color3.fromRGB(130, 133, 125), Enum.Material.Concrete)
+stopPart("ShelterRoof", Vector3.new(12, 0.5, 6), Vector3.new(0, 8, 0), Color3.fromRGB(28, 85, 68), Enum.Material.Metal)
+for _, xOffset in ipairs({-5, 5}) do
+    stopPart("ShelterPost", Vector3.new(0.35, 7.5, 0.35), Vector3.new(xOffset, 4, 0), Color3.fromRGB(175, 184, 180), Enum.Material.Metal)
+end
+stopPart("BenchSeat", Vector3.new(5, 0.35, 1), Vector3.new(0, 2, -1.2), Color3.fromRGB(115, 73, 42), Enum.Material.Wood)
+stopPart("BenchBack", Vector3.new(5, 1.5, 0.25), Vector3.new(0, 2.8, -1.7), Color3.fromRGB(115, 73, 42), Enum.Material.Wood)
+stopPart("SignPole", Vector3.new(0.25, 7, 0.25), Vector3.new(-7, 3.5, 1), Color3.fromRGB(175, 185, 190), Enum.Material.Metal)
+local sign = stopPart("BusStopSign", Vector3.new(4.5, 2.2, 0.25), Vector3.new(-7, 6.4, 1), Color3.fromRGB(20, 110, 72), Enum.Material.Metal)
+local signGui = Instance.new("SurfaceGui")
+signGui.Face = Enum.NormalId.Front
+signGui.CanvasSize = Vector2.new(450, 220)
+signGui.Parent = sign
+local signText = Instance.new("TextLabel")
+signText.Size = UDim2.fromScale(1, 1)
+signText.BackgroundTransparency = 1
+signText.Text = "BUS STOP\nAGARTALA"
+signText.TextColor3 = Color3.new(1, 1, 1)
+signText.TextScaled = true
+signText.Font = Enum.Font.GothamBlack
+signText.Parent = signGui
+
+local stopMarker = Instance.new("BillboardGui")
+stopMarker.Name = "BusStopWorldMarker"
+stopMarker.Size = UDim2.fromOffset(150, 35)
+stopMarker.StudsOffset = Vector3.new(0, 10, 0)
+stopMarker.AlwaysOnTop = true
+stopMarker.Parent = sign
+local stopLabel = Instance.new("TextLabel")
+stopLabel.Size = UDim2.fromScale(1, 1)
+stopLabel.BackgroundColor3 = Color3.fromRGB(15, 35, 29)
+stopLabel.BackgroundTransparency = 0.1
+stopLabel.Text = "BUS STOP"
+stopLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+stopLabel.TextScaled = true
+stopLabel.Font = Enum.Font.GothamBold
+stopLabel.Parent = stopMarker
+
+print("Indian Bus Driver Simulator: generated " .. #buses .. " buses and an Agartala corner bus stop")
