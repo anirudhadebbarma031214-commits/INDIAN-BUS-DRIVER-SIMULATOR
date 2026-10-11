@@ -2,6 +2,12 @@
   "name": "IndianBusDriverSimulator",
   "tree": {
     "$className": "DataModel",
+    "ServerScriptService": {
+      "$className": "ServerScriptService",
+      "BusFleet": {
+        "$path": "src/server"
+      }
+    },
     "StarterPlayer": {
       "$className": "StarterPlayer",
       "StarterPlayerScripts": {
