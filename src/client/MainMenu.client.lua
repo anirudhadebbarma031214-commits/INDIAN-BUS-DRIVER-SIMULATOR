@@ -363,6 +363,191 @@ RunService.RenderStepped:Connect(function(dt)
     end
 end)
 
+
+-- LEFT-SIDE IN-GAME VEHICLE STATUS: fuel/petrol and vehicle damage.
+-- Reads FuelPercent and DamagePercent attributes from the bus model when available.
+local vehicleStatus = Instance.new("Frame")
+vehicleStatus.Name = "VehicleStatusSidebar"
+vehicleStatus.AnchorPoint = Vector2.new(0, 0.5)
+vehicleStatus.Position = UDim2.new(0.025, 0, 0.52, 0)
+vehicleStatus.Size = UDim2.fromOffset(208, 184)
+vehicleStatus.BackgroundColor3 = Color3.fromRGB(7, 15, 24)
+vehicleStatus.BackgroundTransparency = 0.08
+vehicleStatus.BorderSizePixel = 0
+vehicleStatus.Visible = false
+vehicleStatus.ZIndex = 40
+vehicleStatus.Parent = gui
+local vehicleStatusCorner = Instance.new("UICorner")
+vehicleStatusCorner.CornerRadius = UDim.new(0, 14)
+vehicleStatusCorner.Parent = vehicleStatus
+local vehicleStatusStroke = Instance.new("UIStroke")
+vehicleStatusStroke.Color = Color3.fromRGB(48, 190, 220)
+vehicleStatusStroke.Thickness = 1.5
+vehicleStatusStroke.Parent = vehicleStatus
+
+local statusHeading = Instance.new("TextLabel")
+statusHeading.BackgroundTransparency = 1
+statusHeading.Position = UDim2.new(0.07, 0, 0.04, 0)
+statusHeading.Size = UDim2.new(0.86, 0, 0.14, 0)
+statusHeading.Font = Enum.Font.GothamBlack
+statusHeading.Text = "VEHICLE STATUS"
+statusHeading.TextColor3 = Color3.fromRGB(235, 245, 250)
+statusHeading.TextScaled = true
+statusHeading.TextXAlignment = Enum.TextXAlignment.Left
+statusHeading.ZIndex = 41
+statusHeading.Parent = vehicleStatus
+
+local function makeStatusMeter(name, labelText, iconText, top, fillColor)
+    local label = Instance.new("TextLabel")
+    label.Name = name .. "Label"
+    label.BackgroundTransparency = 1
+    label.Position = UDim2.new(0.07, 0, top, 0)
+    label.Size = UDim2.new(0.86, 0, 0.13, 0)
+    label.Font = Enum.Font.GothamBold
+    label.Text = iconText .. "  " .. labelText
+    label.TextColor3 = Color3.fromRGB(210, 225, 235)
+    label.TextSize = 13
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.ZIndex = 41
+    label.Parent = vehicleStatus
+
+    local value = Instance.new("TextLabel")
+    value.Name = name .. "Value"
+    value.BackgroundTransparency = 1
+    value.AnchorPoint = Vector2.new(1, 0)
+    value.Position = UDim2.new(0.93, 0, top, 0)
+    value.Size = UDim2.new(0.28, 0, 0.13, 0)
+    value.Font = Enum.Font.GothamBlack
+    value.Text = "--"
+    value.TextColor3 = fillColor
+    value.TextSize = 14
+    value.TextXAlignment = Enum.TextXAlignment.Right
+    value.ZIndex = 41
+    value.Parent = vehicleStatus
+
+    local back = Instance.new("Frame")
+    back.Name = name .. "BarBack"
+    back.Position = UDim2.new(0.07, 0, top + 0.15, 0)
+    back.Size = UDim2.new(0.86, 0, 0, 9)
+    back.BackgroundColor3 = Color3.fromRGB(31, 47, 58)
+    back.BorderSizePixel = 0
+    back.ZIndex = 41
+    back.Parent = vehicleStatus
+    local backCorner = Instance.new("UICorner")
+    backCorner.CornerRadius = UDim.new(1, 0)
+    backCorner.Parent = back
+
+    local fill = Instance.new("Frame")
+    fill.Name = name .. "Fill"
+    fill.Size = UDim2.new(1, 0, 1, 0)
+    fill.BackgroundColor3 = fillColor
+    fill.BorderSizePixel = 0
+    fill.ZIndex = 42
+    fill.Parent = back
+    local fillCorner = Instance.new("UICorner")
+    fillCorner.CornerRadius = UDim.new(1, 0)
+    fillCorner.Parent = fill
+    return value, fill
+end
+
+local fuelValue, fuelFill = makeStatusMeter("Fuel", "PETROL", "⛽", 0.23, Color3.fromRGB(65, 220, 145))
+local damageValue, damageFill = makeStatusMeter("Damage", "DAMAGE", "🔧", 0.57, Color3.fromRGB(255, 170, 65))
+local vehicleHint = Instance.new("TextLabel")
+vehicleHint.BackgroundTransparency = 1
+vehicleHint.Position = UDim2.new(0.07, 0, 0.88, 0)
+vehicleHint.Size = UDim2.new(0.86, 0, 0.08, 0)
+vehicleHint.Font = Enum.Font.Gotham
+vehicleHint.Text = "ENTER A BUS TO MONITOR"
+vehicleHint.TextColor3 = Color3.fromRGB(145, 170, 185)
+vehicleHint.TextScaled = true
+vehicleHint.TextXAlignment = Enum.TextXAlignment.Left
+vehicleHint.ZIndex = 41
+vehicleHint.Parent = vehicleStatus
+
+local fuelCache = setmetatable({}, {__mode = "k"})
+local damageCache = setmetatable({}, {__mode = "k"})
+local impactCooldown = setmetatable({}, {__mode = "k"})
+local trackedVehicle = nil
+local lastVehicleSpeed = 0
+local function findSeatedVehicle()
+    local character = player.Character
+    local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+    local seatPart = humanoid and humanoid.SeatPart
+    if not seatPart or not seatPart:IsA("VehicleSeat") then return nil, nil end
+    local model = seatPart:FindFirstAncestorOfClass("Model")
+    return model, seatPart
+end
+
+local function getPercent(model, attributeName, cache, defaultValue)
+    local attribute = model:GetAttribute(attributeName)
+    if typeof(attribute) == "number" then
+        cache[model] = math.clamp(attribute, 0, 100)
+    elseif cache[model] == nil then
+        cache[model] = defaultValue
+    end
+    return math.clamp(cache[model], 0, 100)
+end
+
+local function updateVehicleStatus()
+    if not vehicleStatus.Visible then return end
+    local model, seat = findSeatedVehicle()
+    trackedVehicle = model
+    if not model or not seat then
+        fuelValue.Text = "--"
+        damageValue.Text = "--"
+        fuelFill.Size = UDim2.new(0, 0, 1, 0)
+        damageFill.Size = UDim2.new(0, 0, 1, 0)
+        vehicleHint.Text = "ENTER A BUS TO MONITOR"
+        vehicleHint.TextColor3 = Color3.fromRGB(145, 170, 185)
+        lastVehicleSpeed = 0
+        return
+    end
+
+    local fuel = getPercent(model, "FuelPercent", fuelCache, 100)
+    local damage = getPercent(model, "DamagePercent", damageCache, 0)
+    local velocity = seat.AssemblyLinearVelocity
+    local speed = Vector3.new(velocity.X, 0, velocity.Z).Magnitude
+
+    -- Consume a little fuel while the bus is moving under throttle.
+    if seat.ThrottleFloat > 0 and speed > 1 and model:GetAttribute("FuelPercent") == nil then
+        fuel = math.max(0, fuel - 0.025)
+        fuelCache[model] = fuel
+    end
+
+    -- Approximate collision damage after a sharp speed drop; real vehicle damage
+    -- can override this by setting the model's DamagePercent attribute.
+    local previousSpeed = lastVehicleSpeed
+    if model:GetAttribute("DamagePercent") == nil and previousSpeed - speed > 24 and speed > 5 then
+        local now = os.clock()
+        if not impactCooldown[model] or now - impactCooldown[model] > 1.5 then
+            damage = math.min(100, damage + math.clamp((previousSpeed - speed) * 0.45, 2, 18))
+            damageCache[model] = damage
+            impactCooldown[model] = now
+        end
+    end
+    lastVehicleSpeed = speed
+
+    fuelValue.Text = string.format("%d%%", math.floor(fuel + 0.5))
+    damageValue.Text = string.format("%d%%", math.floor(damage + 0.5))
+    fuelFill.Size = UDim2.new(fuel / 100, 0, 1, 0)
+    damageFill.Size = UDim2.new(damage / 100, 0, 1, 0)
+    fuelFill.BackgroundColor3 = fuel <= 20 and Color3.fromRGB(255, 75, 70) or Color3.fromRGB(65, 220, 145)
+    damageFill.BackgroundColor3 = damage >= 65 and Color3.fromRGB(255, 75, 70) or Color3.fromRGB(255, 170, 65)
+    damageValue.TextColor3 = damage >= 65 and Color3.fromRGB(255, 85, 75) or Color3.fromRGB(255, 190, 100)
+    if fuel <= 20 then
+        vehicleHint.Text = "LOW PETROL • REFUEL SOON"
+        vehicleHint.TextColor3 = Color3.fromRGB(255, 100, 90)
+    elseif damage >= 65 then
+        vehicleHint.Text = "HIGH DAMAGE • DRIVE CAREFULLY"
+        vehicleHint.TextColor3 = Color3.fromRGB(255, 100, 90)
+    else
+        vehicleHint.Text = model.Name:upper()
+        vehicleHint.TextColor3 = Color3.fromRGB(145, 210, 190)
+    end
+end
+
+RunService.RenderStepped:Connect(updateVehicleStatus)
+
 -- CORNER MINIMAP: player marker plus a live pointer toward the Agartala bus stop.
 local miniMap = Instance.new("Frame")
 miniMap.Name = "CornerDirectionMap"
@@ -760,6 +945,7 @@ confirmRoute.Activated:Connect(function()
     background.Visible = false
     miniMap.Visible = true
     speedHud.Visible = true
+    vehicleStatus.Visible = true
 end)
 
 playButton.Activated:Connect(function()
