@@ -234,6 +234,135 @@ local exitDialog = makeDialog(
 )
 
 
+
+-- COOL LIVE SPEEDOMETER HUD (km/h), styled like a modern Indian coach dashboard.
+local speedHud = Instance.new("Frame")
+speedHud.Name = "BusSpeedometer"
+speedHud.AnchorPoint = Vector2.new(1, 1)
+speedHud.Position = UDim2.new(0.98, 0, 0.97, 0)
+speedHud.Size = UDim2.fromOffset(245, 142)
+speedHud.BackgroundColor3 = Color3.fromRGB(7, 15, 24)
+speedHud.BackgroundTransparency = 0.08
+speedHud.BorderSizePixel = 0
+speedHud.Visible = false
+speedHud.ZIndex = 40
+speedHud.Parent = gui
+local speedCorner = Instance.new("UICorner")
+speedCorner.CornerRadius = UDim.new(0, 16)
+speedCorner.Parent = speedHud
+local speedStroke = Instance.new("UIStroke")
+speedStroke.Color = Color3.fromRGB(48, 190, 220)
+speedStroke.Thickness = 2
+speedStroke.Transparency = 0.1
+speedStroke.Parent = speedHud
+
+local speedTitle = Instance.new("TextLabel")
+speedTitle.BackgroundTransparency = 1
+speedTitle.Position = UDim2.new(0.06, 0, 0.05, 0)
+speedTitle.Size = UDim2.new(0.88, 0, 0.17, 0)
+speedTitle.Font = Enum.Font.GothamBlack
+speedTitle.Text = "ANI  •  BUS DASH"
+speedTitle.TextColor3 = Color3.fromRGB(130, 225, 255)
+speedTitle.TextScaled = true
+speedTitle.TextXAlignment = Enum.TextXAlignment.Left
+speedTitle.ZIndex = 41
+speedTitle.Parent = speedHud
+
+local speedValue = Instance.new("TextLabel")
+speedValue.Name = "SpeedValue"
+speedValue.BackgroundTransparency = 1
+speedValue.Position = UDim2.new(0.05, 0, 0.2, 0)
+speedValue.Size = UDim2.new(0.62, 0, 0.56, 0)
+speedValue.Font = Enum.Font.GothamBlack
+speedValue.Text = "0"
+speedValue.TextColor3 = Color3.fromRGB(255, 255, 255)
+speedValue.TextScaled = true
+speedValue.TextXAlignment = Enum.TextXAlignment.Left
+speedValue.ZIndex = 41
+speedValue.Parent = speedHud
+
+local speedUnit = Instance.new("TextLabel")
+speedUnit.BackgroundTransparency = 1
+speedUnit.Position = UDim2.new(0.55, 0, 0.47, 0)
+speedUnit.Size = UDim2.new(0.35, 0, 0.2, 0)
+speedUnit.Font = Enum.Font.GothamBold
+speedUnit.Text = "km/h"
+speedUnit.TextColor3 = Color3.fromRGB(150, 175, 190)
+speedUnit.TextScaled = true
+speedUnit.TextXAlignment = Enum.TextXAlignment.Left
+speedUnit.ZIndex = 41
+speedUnit.Parent = speedHud
+
+local speedBarBack = Instance.new("Frame")
+speedBarBack.Position = UDim2.new(0.06, 0, 0.79, 0)
+speedBarBack.Size = UDim2.new(0.88, 0, 0, 9)
+speedBarBack.BackgroundColor3 = Color3.fromRGB(30, 48, 61)
+speedBarBack.BorderSizePixel = 0
+speedBarBack.ZIndex = 41
+speedBarBack.Parent = speedHud
+local speedBarBackCorner = Instance.new("UICorner")
+speedBarBackCorner.CornerRadius = UDim.new(1, 0)
+speedBarBackCorner.Parent = speedBarBack
+
+local speedBar = Instance.new("Frame")
+speedBar.Name = "SpeedFill"
+speedBar.Size = UDim2.new(0, 0, 1, 0)
+speedBar.BackgroundColor3 = Color3.fromRGB(55, 220, 170)
+speedBar.BorderSizePixel = 0
+speedBar.ZIndex = 42
+speedBar.Parent = speedBarBack
+local speedBarCorner = Instance.new("UICorner")
+speedBarCorner.CornerRadius = UDim.new(1, 0)
+speedBarCorner.Parent = speedBar
+
+local speedStatus = Instance.new("TextLabel")
+speedStatus.BackgroundTransparency = 1
+speedStatus.Position = UDim2.new(0.06, 0, 0.87, 0)
+speedStatus.Size = UDim2.new(0.88, 0, 0.1, 0)
+speedStatus.Font = Enum.Font.GothamBold
+speedStatus.Text = "READY  •  LIMIT 80"
+speedStatus.TextColor3 = Color3.fromRGB(130, 225, 180)
+speedStatus.TextScaled = true
+speedStatus.TextXAlignment = Enum.TextXAlignment.Left
+speedStatus.ZIndex = 41
+speedStatus.Parent = speedHud
+
+local MAX_SPEED_KMH = 120
+local lastSpeed = 0
+RunService.RenderStepped:Connect(function(dt)
+    if not speedHud.Visible then return end
+    local character = player.Character
+    local root = character and character:FindFirstChild("HumanoidRootPart")
+    local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+    local studsPerSecond = 0
+    if root then
+        local velocity = root.AssemblyLinearVelocity
+        studsPerSecond = Vector3.new(velocity.X, 0, velocity.Z).Magnitude
+    elseif humanoid then
+        studsPerSecond = humanoid.MoveDirection.Magnitude * humanoid.WalkSpeed
+    end
+    local kmh = math.floor(studsPerSecond * 1.008 + 0.5)
+    lastSpeed = kmh
+    speedValue.Text = tostring(kmh)
+    speedBar:TweenSize(UDim2.new(math.clamp(kmh / MAX_SPEED_KMH, 0, 1), 0, 1, 0), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, math.max(dt, 0.05), true)
+    if kmh >= 80 then
+        speedBar.BackgroundColor3 = Color3.fromRGB(255, 75, 70)
+        speedStroke.Color = Color3.fromRGB(255, 90, 75)
+        speedStatus.Text = "SLOW DOWN  •  LIMIT 80"
+        speedStatus.TextColor3 = Color3.fromRGB(255, 100, 90)
+    elseif kmh >= 55 then
+        speedBar.BackgroundColor3 = Color3.fromRGB(255, 185, 65)
+        speedStroke.Color = Color3.fromRGB(255, 185, 65)
+        speedStatus.Text = "CRUISING  •  LIMIT 80"
+        speedStatus.TextColor3 = Color3.fromRGB(255, 200, 110)
+    else
+        speedBar.BackgroundColor3 = Color3.fromRGB(55, 220, 170)
+        speedStroke.Color = Color3.fromRGB(48, 190, 220)
+        speedStatus.Text = "CITY DRIVE  •  LIMIT 80"
+        speedStatus.TextColor3 = Color3.fromRGB(130, 225, 180)
+    end
+end)
+
 -- CORNER MINIMAP: player marker plus a live pointer toward the Agartala bus stop.
 local miniMap = Instance.new("Frame")
 miniMap.Name = "CornerDirectionMap"
@@ -630,6 +759,7 @@ confirmRoute.Activated:Connect(function()
     routePanel.Visible = false
     background.Visible = false
     miniMap.Visible = true
+    speedHud.Visible = true
 end)
 
 playButton.Activated:Connect(function()
