@@ -10,68 +10,151 @@ on:
 permissions:
   contents: read
 
+defaults:
+  run:
+    shell: bash
+
+env:
+  GODOT_VERSION: "4.3"
+  # Android command-line tools 11.0 (requires JDK 17)
+  CMDLINE_TOOLS_ZIP: commandlinetools-linux-11076708_latest.zip
+
 jobs:
   build-android:
     name: Export Android APK
     runs-on: ubuntu-22.04
+    timeout-minutes: 60
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Java
+      - name: Install Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
 
-      - name: Install required Android SDK packages
-        env:
-          ANDROID_HOME: /usr/local/lib/android/sdk
-          ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+      - name: Install Android SDK (command-line tools + required packages)
         run: |
-          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
-          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
-          yes | "$ANDROID_HOME/cmdline-tools/16.0/bin/sdkmanager" --licenses
-          "$ANDROID_HOME/cmdline-tools/16.0/bin/sdkmanager" --install "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+          set -euo pipefail
+          SDK="$HOME/android-sdk"
+          mkdir -p "$SDK/cmdline-tools"
+
+          # Godot requires the command-line tools to live in cmdline-tools/latest.
+          curl -fL --retry 3 -o "$RUNNER_TEMP/cmdline-tools.zip" \
+            "https://dl.google.com/android/repository/${CMDLINE_TOOLS_ZIP}"
+          rm -rf "$RUNNER_TEMP/cmdline-tools-extract" "$SDK/cmdline-tools/latest"
+          unzip -q "$RUNNER_TEMP/cmdline-tools.zip" -d "$RUNNER_TEMP/cmdline-tools-extract"
+          mv "$RUNNER_TEMP/cmdline-tools-extract/cmdline-tools" "$SDK/cmdline-tools/latest"
+
+          # Persist for later steps.
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          echo "$SDK/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          echo "$SDK/platform-tools" >> "$GITHUB_PATH"
+
+          SDKMANAGER="$SDK/cmdline-tools/latest/bin/sdkmanager"
+
+          # `yes` gets SIGPIPE when sdkmanager exits; don't let pipefail treat that as a failure.
+          set +o pipefail
+          yes | "$SDKMANAGER" --sdk_root="$SDK" --licenses > /dev/null
+          set -o pipefail
+
+          # Each package is its own argument (quoted so the shell does not split on ';').
+          "$SDKMANAGER" --sdk_root="$SDK" --install \
+            "platform-tools" \
+            "platforms;android-34" \
+            "build-tools;34.0.0"
+
+          echo "--- Installed SDK layout ---"
+          java -version
+          test -x "$SDK/cmdline-tools/latest/bin/sdkmanager"
+          test -x "$SDK/platform-tools/adb"
+          test -d "$SDK/platforms/android-34"
+          test -d "$SDK/build-tools/34.0.0"
+          ls "$SDK" "$SDK/build-tools" "$SDK/platforms"
 
       - name: Download Godot 4.3 and export templates
         run: |
-          mkdir -p "$RUNNER_TEMP/godot" "$HOME/.local/share/godot/export_templates/4.3.stable"
-          curl -fL --retry 3 "https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_linux.x86_64.zip" -o "$RUNNER_TEMP/godot/godot.zip"
-          unzip -q "$RUNNER_TEMP/godot/godot.zip" -d "$RUNNER_TEMP/godot"
-          sudo install "$RUNNER_TEMP/godot/Godot_v4.3-stable_linux.x86_64" /usr/local/bin/godot
-          curl -fL --retry 3 "https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_export_templates.tpz" -o "$RUNNER_TEMP/godot/templates.tpz"
-          unzip -q "$RUNNER_TEMP/godot/templates.tpz" -d "$RUNNER_TEMP/godot/templates"
-          mkdir -p "$HOME/.local/share/godot/export_templates/4.3.stable"
-          cp -a "$RUNNER_TEMP/godot/templates/templates/." "$HOME/.local/share/godot/export_templates/4.3.stable/"
+          set -euo pipefail
+          BASE="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable"
+          TEMPLATE_DIR="$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
+          mkdir -p "$RUNNER_TEMP/godot" "$TEMPLATE_DIR"
 
-      - name: Prepare Android debug signing key
+          curl -fL --retry 3 -o "$RUNNER_TEMP/godot/godot.zip" \
+            "$BASE/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q "$RUNNER_TEMP/godot/godot.zip" -d "$RUNNER_TEMP/godot"
+          sudo install "$RUNNER_TEMP/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64" /usr/local/bin/godot
+
+          curl -fL --retry 3 -o "$RUNNER_TEMP/godot/templates.tpz" \
+            "$BASE/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          unzip -q "$RUNNER_TEMP/godot/templates.tpz" -d "$RUNNER_TEMP/godot/templates"
+          cp -a "$RUNNER_TEMP/godot/templates/templates/." "$TEMPLATE_DIR/"
+
+          godot --version
+          test -f "$TEMPLATE_DIR/android_debug.apk"
+          test -f "$TEMPLATE_DIR/version.txt"
+          echo "Templates version: $(cat "$TEMPLATE_DIR/version.txt")"
+
+      - name: Create Android debug signing key
         run: |
+          set -euo pipefail
           mkdir -p "$HOME/.android"
-          keytool -genkeypair -v \
+          rm -f "$HOME/.android/debug.keystore"
+          keytool -genkeypair \
             -keystore "$HOME/.android/debug.keystore" \
             -storepass android \
             -alias androiddebugkey \
             -keypass android \
             -dname "CN=Android Debug,O=Android,C=US" \
             -keyalg RSA -keysize 2048 -validity 10000
+          test -f "$HOME/.android/debug.keystore"
 
-      - name: Install Godot Android build template
-        working-directory: android-godot
-        run: godot --headless --editor --path . --install-android-build-template
+      - name: Configure Godot editor settings for Android export
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.config/godot"
+          # Godot 4.3 reads editor_settings-4.3.tres; 4.tres is written too as a harmless fallback.
+          for f in editor_settings-4.3.tres editor_settings-4.tres; do
+            cat > "$HOME/.config/godot/$f" <<EOF
+          [gd_resource type="EditorSettings" format=3]
 
-      - name: Import project resources
+          [resource]
+          export/android/android_sdk_path = "$ANDROID_HOME"
+          export/android/java_sdk_path = "$JAVA_HOME"
+          export/android/debug_keystore = "$HOME/.android/debug.keystore"
+          export/android/debug_keystore_user = "androiddebugkey"
+          export/android/debug_keystore_pass = "android"
+          export/android/force_system_user = false
+          export/android/shutdown_adb_on_exit = true
+          EOF
+          done
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "JAVA_HOME=$JAVA_HOME"
+          cat "$HOME/.config/godot/editor_settings-4.3.tres"
+
+      - name: Import project resources and check for script errors
         working-directory: android-godot
-        run: godot --headless --editor --path . --quit
+        run: |
+          set -uo pipefail
+          godot --headless --path . --import 2>&1 | tee "$RUNNER_TEMP/import.log"
+          if grep -E "SCRIPT ERROR|Parse Error|Failed loading resource|Failed to load" "$RUNNER_TEMP/import.log"; then
+            echo "::error::Godot reported script or resource errors during import."
+            exit 1
+          fi
+          echo "Import finished with no script or resource errors."
 
       - name: Export Android debug APK
         working-directory: android-godot
-        env:
-          ANDROID_HOME: ${{ env.ANDROID_HOME }}
-          ANDROID_SDK_ROOT: ${{ env.ANDROID_HOME }}
         run: |
+          set -euo pipefail
           mkdir -p build
-          godot --headless --path . --export-debug "Android" build/IndianBusDriverSimulator.apk
+          godot --headless --path . --export-debug "Android" build/IndianBusDriverSimulator.apk 2>&1 | tee "$RUNNER_TEMP/export.log"
+          if [ ! -s build/IndianBusDriverSimulator.apk ]; then
+            echo "::error::APK was not produced. See export log above."
+            exit 1
+          fi
+          ls -la build
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
