@@ -3,10 +3,7 @@
   "tree": {
     "$className": "DataModel",
     "ServerScriptService": {
-      "$className": "ServerScriptService",
-      "BusFleet": {
-        "$path": "src/server"
-      }
+      "$path": "src/server"
     },
     "StarterPlayer": {
       "$className": "StarterPlayer",
