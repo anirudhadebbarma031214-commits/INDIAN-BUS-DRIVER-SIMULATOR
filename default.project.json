@@ -1,0 +1,12 @@
+{
+  "name": "IndianBusDriverSimulator",
+  "tree": {
+    "$className": "DataModel",
+    "StarterPlayer": {
+      "$className": "StarterPlayer",
+      "StarterPlayerScripts": {
+        "$path": "src/client"
+      }
+    }
+  }
+}
