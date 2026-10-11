@@ -232,15 +232,261 @@ local exitDialog = makeDialog(
     "GOT IT"
 )
 
+-- ROUTE SELECTOR: a clickable schematic map, built directly in Roblox UI.
+-- This is a stylized route diagram, not a live GPS map. Driving/spawning will be wired in later.
+local routePanel = Instance.new("Frame")
+routePanel.Name = "RouteSelectPanel"
+routePanel.Size = UDim2.fromScale(1, 1)
+routePanel.BackgroundColor3 = Color3.fromRGB(7, 13, 21)
+routePanel.BorderSizePixel = 0
+routePanel.Visible = false
+routePanel.ZIndex = 10
+routePanel.Parent = gui
+
+local routeTitle = Instance.new("TextLabel")
+routeTitle.BackgroundTransparency = 1
+routeTitle.Position = UDim2.new(0.05, 0, 0.035, 0)
+routeTitle.Size = UDim2.new(0.72, 0, 0.09, 0)
+routeTitle.Font = Enum.Font.GothamBlack
+routeTitle.Text = "SELECT YOUR ROUTE"
+routeTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+routeTitle.TextScaled = true
+routeTitle.TextXAlignment = Enum.TextXAlignment.Left
+routeTitle.ZIndex = 11
+routeTitle.Parent = routePanel
+
+local routeSubtitle = Instance.new("TextLabel")
+routeSubtitle.BackgroundTransparency = 1
+routeSubtitle.Position = UDim2.new(0.05, 0, 0.12, 0)
+routeSubtitle.Size = UDim2.new(0.88, 0, 0.045, 0)
+routeSubtitle.Font = Enum.Font.Gotham
+routeSubtitle.Text = "TRIPURA • INDIA  /  CHOOSE A DESTINATION"
+routeSubtitle.TextColor3 = Color3.fromRGB(255, 174, 80)
+routeSubtitle.TextScaled = true
+routeSubtitle.TextXAlignment = Enum.TextXAlignment.Left
+routeSubtitle.ZIndex = 11
+routeSubtitle.Parent = routePanel
+
+local map = Instance.new("Frame")
+map.Name = "StylizedRouteMap"
+map.Position = UDim2.new(0.05, 0, 0.21, 0)
+map.Size = UDim2.new(0.53, 0, 0.62, 0)
+map.BackgroundColor3 = Color3.fromRGB(17, 35, 43)
+map.BorderSizePixel = 0
+map.ClipsDescendants = true
+map.ZIndex = 11
+map.Parent = routePanel
+local mapCorner = Instance.new("UICorner")
+mapCorner.CornerRadius = UDim.new(0, 14)
+mapCorner.Parent = map
+local mapStroke = Instance.new("UIStroke")
+mapStroke.Color = Color3.fromRGB(68, 115, 111)
+mapStroke.Thickness = 2
+mapStroke.Parent = map
+
+-- Faint grid and winding roads make this a readable schematic map.
+for i = 1, 7 do
+    local line = Instance.new("Frame")
+    line.BackgroundColor3 = Color3.fromRGB(46, 75, 78)
+    line.BackgroundTransparency = 0.45
+    line.BorderSizePixel = 0
+    line.Size = UDim2.new(1, 0, 0, 1)
+    line.Position = UDim2.new(0, 0, i / 8, 0)
+    line.ZIndex = 11
+    line.Parent = map
+end
+for i = 1, 7 do
+    local line = Instance.new("Frame")
+    line.BackgroundColor3 = Color3.fromRGB(46, 75, 78)
+    line.BackgroundTransparency = 0.45
+    line.BorderSizePixel = 0
+    line.Size = UDim2.new(0, 1, 1, 0)
+    line.Position = UDim2.new(i / 8, 0, 0, 0)
+    line.ZIndex = 11
+    line.Parent = map
+end
+
+local function road(name, pos, size, rotation, color, thickness)
+    local r = Instance.new("Frame")
+    r.Name = name
+    r.AnchorPoint = Vector2.new(0.5, 0.5)
+    r.Position = pos
+    r.Size = size
+    r.Rotation = rotation
+    r.BackgroundColor3 = color
+    r.BorderSizePixel = 0
+    r.ZIndex = 12
+    r.Parent = map
+    if thickness then r.Size = UDim2.new(size.X.Scale, size.X.Offset, 0, thickness) end
+    return r
+end
+local roadColor = Color3.fromRGB(133, 157, 147)
+road("MainHighway", UDim2.fromScale(0.48, 0.52), UDim2.fromScale(1.1, 0), -32, roadColor, 5)
+road("NorthRoad", UDim2.fromScale(0.55, 0.32), UDim2.fromScale(0.75, 0), 24, roadColor, 4)
+road("SouthRoad", UDim2.fromScale(0.43, 0.7), UDim2.fromScale(0.72, 0), 15, roadColor, 4)
+road("CityRingRoad", UDim2.fromScale(0.31, 0.48), UDim2.fromScale(0.27, 0), -8, Color3.fromRGB(255, 166, 64), 5)
+
+local mapTag = Instance.new("TextLabel")
+mapTag.BackgroundTransparency = 1
+mapTag.Position = UDim2.new(0.04, 0, 0.04, 0)
+mapTag.Size = UDim2.new(0.65, 0, 0.08, 0)
+mapTag.Font = Enum.Font.GothamBold
+mapTag.Text = "TRIPURA ROAD NETWORK"
+mapTag.TextColor3 = Color3.fromRGB(201, 224, 215)
+mapTag.TextScaled = true
+mapTag.TextXAlignment = Enum.TextXAlignment.Left
+mapTag.ZIndex = 13
+mapTag.Parent = map
+
+local locations = {
+    {name = "AGARTALA", pos = UDim2.fromScale(0.31, 0.48), color = Color3.fromRGB(255, 166, 64)},
+    {name = "UDAIPUR", pos = UDim2.fromScale(0.45, 0.72), color = Color3.fromRGB(91, 205, 154)},
+    {name = "DHARMANAGAR", pos = UDim2.fromScale(0.66, 0.2), color = Color3.fromRGB(91, 205, 154)},
+    {name = "GUWAHATI", pos = UDim2.fromScale(0.84, 0.42), color = Color3.fromRGB(91, 205, 154)}
+}
+for _, location in ipairs(locations) do
+    local dot = Instance.new("Frame")
+    dot.AnchorPoint = Vector2.new(0.5, 0.5)
+    dot.Position = location.pos
+    dot.Size = UDim2.fromOffset(13, 13)
+    dot.BackgroundColor3 = location.color
+    dot.BorderSizePixel = 0
+    dot.ZIndex = 14
+    dot.Parent = map
+    local dotCorner = Instance.new("UICorner")
+    dotCorner.CornerRadius = UDim.new(1, 0)
+    dotCorner.Parent = dot
+    local label = Instance.new("TextLabel")
+    label.BackgroundColor3 = Color3.fromRGB(8, 18, 24)
+    label.BackgroundTransparency = 0.1
+    label.BorderSizePixel = 0
+    label.Position = UDim2.new(location.pos.X.Scale, 10, location.pos.Y.Scale, -11)
+    label.Size = UDim2.fromOffset(120, 23)
+    label.Font = Enum.Font.GothamBold
+    label.Text = location.name
+    label.TextColor3 = Color3.fromRGB(245, 248, 245)
+    label.TextSize = 10
+    label.ZIndex = 14
+    label.Parent = map
+end
+
+local routeOptions = Instance.new("Frame")
+routeOptions.Name = "RouteOptions"
+routeOptions.BackgroundTransparency = 1
+routeOptions.Position = UDim2.new(0.62, 0, 0.21, 0)
+routeOptions.Size = UDim2.new(0.33, 0, 0.62, 0)
+routeOptions.ZIndex = 11
+routeOptions.Parent = routePanel
+local routeList = Instance.new("UIListLayout")
+routeList.Padding = UDim.new(0, 9)
+routeList.SortOrder = Enum.SortOrder.LayoutOrder
+routeList.Parent = routeOptions
+
+local selectedRoute = "Agartala City Loop"
+local selectedLabel = Instance.new("TextLabel")
+selectedLabel.Name = "SelectedRoute"
+selectedLabel.BackgroundTransparency = 1
+selectedLabel.Size = UDim2.new(1, 0, 0, 32)
+selectedLabel.Font = Enum.Font.GothamBold
+selectedLabel.Text = "SELECTED: " .. selectedRoute
+selectedLabel.TextColor3 = Color3.fromRGB(255, 190, 95)
+selectedLabel.TextScaled = true
+selectedLabel.TextWrapped = true
+selectedLabel.LayoutOrder = 0
+selectedLabel.ZIndex = 12
+selectedLabel.Parent = routeOptions
+
+local function makeRouteButton(routeName, description, order)
+    local button = Instance.new("TextButton")
+    button.Name = routeName:gsub("%W", "") .. "RouteButton"
+    button.LayoutOrder = order
+    button.Size = UDim2.new(1, 0, 0, 61)
+    button.BackgroundColor3 = Color3.fromRGB(25, 43, 54)
+    button.BorderSizePixel = 0
+    button.AutoButtonColor = true
+    button.Font = Enum.Font.GothamBold
+    button.Text = routeName .. "\n" .. description
+    button.TextColor3 = Color3.fromRGB(245, 248, 250)
+    button.TextSize = 14
+    button.TextWrapped = true
+    button.ZIndex = 12
+    button.Parent = routeOptions
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, 9)
+    c.Parent = button
+    button.Activated:Connect(function()
+        selectedRoute = routeName
+        selectedLabel.Text = "SELECTED: " .. selectedRoute
+        for _, child in ipairs(routeOptions:GetChildren()) do
+            if child:IsA("TextButton") then
+                child.BackgroundColor3 = Color3.fromRGB(25, 43, 54)
+            end
+        end
+        button.BackgroundColor3 = Color3.fromRGB(20, 125, 85)
+    end)
+    return button
+end
+
+makeRouteButton("Agartala City Loop", "City roads • Short", 1)
+makeRouteButton("Agartala to Udaipur", "Tripura highway • Medium", 2)
+makeRouteButton("Agartala to Dharmanagar", "North Tripura • Long", 3)
+makeRouteButton("Agartala to Guwahati", "Interstate highway • Long", 4)
+
+local mapNote = Instance.new("TextLabel")
+mapNote.BackgroundTransparency = 1
+mapNote.AnchorPoint = Vector2.new(0.5, 1)
+mapNote.Position = UDim2.new(0.5, 0, 0.96, 0)
+mapNote.Size = UDim2.new(0.9, 0, 0.06, 0)
+mapNote.Font = Enum.Font.Gotham
+mapNote.Text = "SCHEMATIC MAP • ROUTE CHOICE UI READY • DRIVING NOT CONNECTED YET"
+mapNote.TextColor3 = Color3.fromRGB(160, 180, 190)
+mapNote.TextScaled = true
+mapNote.ZIndex = 12
+mapNote.Parent = routePanel
+
+local backButton = Instance.new("TextButton")
+backButton.Name = "BackToMenuButton"
+backButton.Position = UDim2.new(0.05, 0, 0.86, 0)
+backButton.Size = UDim2.new(0.2, 0, 0.07, 0)
+backButton.BackgroundColor3 = Color3.fromRGB(55, 65, 75)
+backButton.BorderSizePixel = 0
+backButton.Font = Enum.Font.GothamBold
+backButton.Text = "← BACK"
+backButton.TextColor3 = Color3.new(1, 1, 1)
+backButton.TextSize = 16
+backButton.ZIndex = 12
+backButton.Parent = routePanel
+local backCorner = Instance.new("UICorner")
+backCorner.CornerRadius = UDim.new(0, 8)
+backCorner.Parent = backButton
+backButton.Activated:Connect(function()
+    routePanel.Visible = false
+    background.Visible = true
+end)
+
+local confirmRoute = Instance.new("TextButton")
+confirmRoute.Name = "ConfirmRouteButton"
+confirmRoute.Position = UDim2.new(0.62, 0, 0.86, 0)
+confirmRoute.Size = UDim2.new(0.33, 0, 0.07, 0)
+confirmRoute.BackgroundColor3 = Color3.fromRGB(20, 125, 85)
+confirmRoute.BorderSizePixel = 0
+confirmRoute.Font = Enum.Font.GothamBold
+confirmRoute.Text = "CONFIRM ROUTE  →"
+confirmRoute.TextColor3 = Color3.new(1, 1, 1)
+confirmRoute.TextScaled = true
+confirmRoute.ZIndex = 12
+confirmRoute.Parent = routePanel
+local confirmCorner = Instance.new("UICorner")
+confirmCorner.CornerRadius = UDim.new(0, 8)
+confirmCorner.Parent = confirmRoute
+confirmRoute.Activated:Connect(function()
+    selectedLabel.Text = "ROUTE SAVED: " .. selectedRoute
+    mapNote.Text = "SELECTED: " .. selectedRoute .. " • BUS SPAWN / DRIVING WILL BE CONNECTED NEXT"
+end)
+
 playButton.Activated:Connect(function()
-    -- Temporary menu action until the bus stand and gameplay are connected.
-    local notice = makeDialog(
-        "ComingSoonDialog",
-        "READY TO DRIVE?",
-        "The menu is ready! The bus stand, bus selection, and driving gameplay will be connected in the next development steps.",
-        "BACK TO MENU"
-    )
-    notice.Visible = true
+    background.Visible = false
+    routePanel.Visible = true
 end)
 
 creditsButton.Activated:Connect(function()
