@@ -139,7 +139,29 @@ local function makeBus(def, index)
     label.Text = def.name
     label.Parent = board
 
+    -- Invisible driver seat and interaction prompt for playable buses.
+    local driverSeat = Instance.new("VehicleSeat")
+    driverSeat.Name = "DriverSeat"
+    driverSeat.Size = Vector3.new(2, 1, 2)
+    driverSeat.CFrame = base * CFrame.new(0, 3.25, 6.5)
+    driverSeat.Transparency = 1
+    driverSeat.Anchored = true
+    driverSeat.CanCollide = false
+    driverSeat.Disabled = false
+    driverSeat.Parent = model
+
+    local drivePrompt = Instance.new("ProximityPrompt")
+    drivePrompt.Name = "DriveBusPrompt"
+    drivePrompt.ActionText = "Drive Bus"
+    drivePrompt.ObjectText = def.name
+    drivePrompt.KeyboardKeyCode = Enum.KeyCode.E
+    drivePrompt.HoldDuration = 0.35
+    drivePrompt.MaxActivationDistance = 12
+    drivePrompt.RequiresLineOfSight = false
+    drivePrompt.Parent = body
+
     model.PrimaryPart = body
+    model:SetAttribute("CanDrive", true)
     return model
 end
 
